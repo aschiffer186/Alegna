@@ -26,13 +26,15 @@ namespace alegna::lexer::automata
 
         //The error state 
         static const state_t ERROR = -1;
+        //Epsilon transition 
+        static const char EPSILON = '/0';
 
         //Constructs a new finite automatum with the specified state transition table and 
         //set of accepting states. 
         //@param transitions the state transition table for the automatum 
         //@param accepting_states the set of accepting states
-        automatum(const fa_table_t& transitions, const std::unordered_set<state_t>& accepting_states)
-             : _M_transitions(transitions), _M_accepting_states(_accepting_states)
+        automatum(const std::vector<state_t>& states, const fa_table_t& transitions, const std::unordered_set<state_t>& accepting_states)
+             : _M_states(states), _M_transitions(transitions), _M_accepting_states(_accepting_states)
         {
 
         }
@@ -49,7 +51,7 @@ namespace alegna::lexer::automata
             auto row = _M_transitions(row);
             auto it = row.find(tok);
             if (it != row.end())
-                return it->second;
+                return *(it->second);
             return ERROR;
         }
 
@@ -62,19 +64,17 @@ namespace alegna::lexer::automata
             return _M_accepting.find(s) != _M_accepting.end();
         }
 
-        std::vector<std::unordered_map<_TokTp, state_t>> get_table() const
+        const std::vector<std::unordered_map<_TokTp, state_t*>>& get_table() const
         {
             return _M_transitions;
         }
 
-        std::unordered_set<state_t> get_accepting_states() const
+        const std::unordered_set<state_t*>& get_accepting_states() const
         {
             return _M_accepting;
         }
 
         private:
-            //The set of states of the automatum 
-            std::unordered_set<state_t> _M_states;
             //The state transition table of the automatum
             std::vector<std::unordered_map<_TokTp, state_t>> _M_transitions;
             //The accepting states of the automatum
@@ -95,10 +95,66 @@ namespace alegna::lexer::automata
     {
         if (op == "?") //Concatenation
         {
-            auto table_1 = lhs.get_table();
-            auto table_2 = rhs.get_table();
-            std::vector<state_t> lhs_accepting_states = lhs.get_accepting_states();
-            std::vector<state_t> rhs_accepting_states = rhs.get_accepting_states();        
+            //Get tables of automata
+            auto lhs_table = lhs.get_table();
+            auto rhs_table = rhs.get_table();
+            //Get accetping states of automata
+            auto lhs_accepting_states = lhs.get_accepting_states();
+            auto rhs_accepting_states = rhs.get_accepting_states();
+            //Get number of states in lhs
+            //All states in rhs will increase by this number 
+            size_t increase = lhs_table.size();
+            //Increase number in accepting states of rhs
+            for(auto& state: rhs_accepting_states)
+                state += increase;
+            //All states in rhs increase by number of states in lhs
+            for(auto& state: rhs_table)
+            {
+                for(auto& transition: state)
+                {
+                    transition.second += increase;
+                }
+            }
+            //First state of rhs becomes last state of lhs 
+            lhs_table[lhs_accepting_states.front()] = rhs_table[0];
+            //Merge lhs and rhs transition tables 
+            for (size_t i = i; i < rhs_table.size(); ++i)
+                lhs_table.push_back(rhs_table[i]);
+            //Merge accetping states
+            std::vector<state_t> final_accepting_states;
+            std::merge(lhs_accepting_states.begin(), lhs_accepting_states.end(), 
+                       rhs_accepting_states.begin(), rhs_accepting_states.end(), 
+                       std::back_inserter(final_accepting_states));
+            //Create merged automatum
+            return automatum<_TokTp>(lhs_table, final_accepting_states);
+        }
+        else if (op == '|') //Union
+        {
+            //Create state transition table for new automatum
+            typename automatum<_TokTp>::fa_table_t new_table;
+            //Get automata state transition tables
+            auto lhs_table = lhs.get_table();
+            auto rhs_table = rhs.get_table();
+
+            //All states in lhs increase by one to account for new start state
+            for(auto& state: lhs_table)
+            {
+                for(auto& transition: state)
+                {
+                    transition.second += 1;
+                }
+            }
+            //All states in rhs increase by number of states in lhs + 1 to account 
+            //for start state and addition of lhs states
+            size_t num_lhs_states = lhs_table.size();
+            for(auto& state: rhs_table)
+            {
+                for(auto& transition: state)
+                {
+                    transition.second += (1 + num_lhs_states);
+                }
+            }
+            //Add epsilon transition 
         }
     }
 
