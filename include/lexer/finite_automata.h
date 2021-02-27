@@ -51,7 +51,7 @@ namespace alegna::lexer::automata
             auto row = _M_transitions(row);
             auto it = row.find(tok);
             if (it != row.end())
-                return *(it->second);
+                return it->second;
             return ERROR;
         }
 
@@ -135,7 +135,9 @@ namespace alegna::lexer::automata
             //Get automata state transition tables
             auto lhs_table = lhs.get_table();
             auto rhs_table = rhs.get_table();
-
+            //Get accepting states
+            auto lhs_accepting_states = lhs.get_accepting_states();
+            auto rhs_accepting_states = rhs.get_accepting_states();
             //All states in lhs increase by one to account for new start state
             for(auto& state: lhs_table)
             {
@@ -154,7 +156,20 @@ namespace alegna::lexer::automata
                     transition.second += (1 + num_lhs_states);
                 }
             }
-            //Add epsilon transition 
+            //Final state in tables becomes epsilon transition to new state
+            lhs_table[lhs_accepting_states.front()] = {_TokTp(automatum<_TokTp>::EPSILON), 1 + num_lhs_states };
+            rhs_table[rhs_accepting_states.front()] = {_TokTp(automatum<_TokTp>::EPSILON), 1 + num_lhs_states};
+            //Add epsilon transition to beginning of lhs and rhs 
+            new_table.push_back(
+                {automatum<_TokTp>::EPSILON, 1},
+                {automuam<_TokTp>::EPSILON, 1 + num_lhs_states}
+            );
+            //Add in lhs_states 
+            new_table.insert(new_table.end(), lhs_table.begin(), lhs_table.end());
+            //Ad in rhs_states 
+            new_table.insert(new_table.end(), rhs_table.begin(), rhs_table.end());
+            //Create new NFA 
+            return automatum<_TokTp>(new_table, {new_table.size() - 1});
         }
     }
 
