@@ -101,6 +101,25 @@ namespace alegna::lexer::regex
         std::regex_replace(back_inserter(result_upper), result_lower.begin(), result_upper.begin(), upper_re, upper_replacement);
         //Replace [A-Za-z]
         std::regex_replace(back_inserter(final_result), result_upper.begin(), result_upper.end(), all_re, all_replacement);
+
+        //Insert concatenation operators
+        for(size_t i = 0; i < final_result.size() - 1; ++i)
+        {
+            if(!is_operator(final_result[i]))
+            {
+                if(final_result[i] != '(' && final_result[i+1] != ')')
+                    final_result.insert(i++, "?");
+            }
+            else if(final_result[i] == ')' && !is_operator(final_result[i]))
+                final_result.insert(i++, "?");
+            else if (final_result[i] == '*')
+                final_result.insert(i++, "?");
+        }
+    }
+
+    bool is_operator(char c)
+    {
+        return c == '*' || c == '|';
     }
 
     int regex_parser::get_priority(char c) const
